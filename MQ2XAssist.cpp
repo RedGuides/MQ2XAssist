@@ -15,6 +15,112 @@ PreSetup("MQ2XAssist");
 #define DEBUGTHIS 1
 int AssistID = 0;
 
+class MQ2XAssistType : public MQ2Type {
+public:
+	enum Members {
+		XTFullHaterCount,
+		XTXAggroCount
+	};
+
+	MQ2XAssistType() :MQ2Type("XAssist") 
+	{
+		TypeMember(XTFullHaterCount);
+		TypeMember(XTXAggroCount);
+	}
+	~MQ2XAssistType() {}
+
+	bool GetMember(MQ2VARPTR VarPtr, PCHAR Member, PCHAR Index, MQ2TYPEVAR& Dest) 
+	{
+		PMQ2TYPEMEMBER pMember = MQ2XAssistType::FindMember(Member);
+		if (!pMember)
+			return false;
+		if (!pLocalPlayer)
+			return false;
+		switch ((Members)pMember->ID) {
+			// Return the total number of AutoHater mobs in the XTarget window including the current target. Expansion of ${Me.XTHaterCount}
+			case XTFullHaterCount:
+				Dest.Int = getXTCountByAggro();
+				Dest.Type = pIntType;
+				return true;
+			// Return the total number of Autohater mobs less than the passed value -- uses an expanded range over ${Me.XTAggroCount}
+			case XTXAggroCount:
+				// Default to return 0
+				Dest.Int = 0;
+				if (IsNumber(Index)) {
+					int param_aggro = atoi(Index);
+					if (param_aggro < 1) 
+						param_aggro = 1;
+					if (param_aggro > 1000) 
+						param_aggro = 1000;
+					Dest.Int = getXTCountByAggro(param_aggro);
+				}
+				else {
+					Dest.Int = getXTCountByAggro();
+				}
+						
+				Dest.Type = pIntType;
+				return true;
+			default:
+				return false;
+				break;
+		}
+	}
+
+	bool FromData(MQ2VARPTR& VarPtr, MQ2TYPEVAR& Source) 
+	{
+		return false;
+	}
+	bool FromString(MQ2VARPTR& VarPtr, PCHAR Source) 
+	{
+		return false;
+	}
+private:
+	/**
+		getXTCountByAggro
+		Calculate the total number of XT Auto Haters less than the passed  aggro value.
+		@return Total number of XTarget Auto Haters less than the passed aggro percentage.
+	*/
+	int getXTCountByAggro(int aggro_check_pct = 1000) 
+{
+		// Default return
+		int aggrocnt = 0;
+
+		PCHARINFO pChar = GetCharInfo();
+		if (!pChar) return aggrocnt;
+
+		ExtendedTargetList* xtm = pChar->pXTargetMgr;
+		if (!xtm) return aggrocnt;
+
+		if (!pAggroInfo) return aggrocnt;
+
+		for (int i = 0; i < xtm->XTargetSlots.Count; i++) {
+			XTARGETSLOT xts = xtm->XTargetSlots[i];
+			DWORD spID = xts.SpawnID;
+			if (spID && xts.xTargetType == XTARGET_AUTO_HATER) {
+				if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(spID)) {
+					if (pSpawn->Type == SPAWN_NPC) {
+						int aggropct = pAggroInfo->aggroData[AD_xTarget1 + i].AggroPct;
+						// DebugSpewAlways("Checking aggro on %s its %d",pSpawn->DisplayedName, aggropct);
+						if (aggropct < aggro_check_pct) {
+							aggrocnt++;
+						}
+					}
+				}
+			}
+		}
+
+		return aggrocnt;
+	}
+};
+class MQ2XAssistType* pXAssistType = nullptr;
+
+BOOL XAssistData(char* szIndex, MQ2TYPEVAR& Dest)
+{
+	Dest.DWord = 1;
+	Dest.Type = pXAssistType;
+	return true;
+}
+
 fEQCommand			cmdXTarget;
 std::string assistname;
 
@@ -111,10 +217,8 @@ PLUGIN_API VOID InitializePlugin(VOID)
 {
     DebugSpewAlways("Initializing MQ2XAssist");
 	AddXAssistCmd();
-    //Add commands, MQ2Data items, hooks, etc.
-    //AddCommand("/mycommand",MyCommand);
-    //AddXMLFile("MQUI_MyXMLFile.xml");
-    //bmMyBenchmark=AddMQ2Benchmark("My Benchmark Name");
+	AddMQ2Data("XAssist", XAssistData);
+	pXAssistType = new MQ2XAssistType;
 }
 
 // Called once, when the plugin is to shutdown
@@ -123,10 +227,8 @@ PLUGIN_API VOID ShutdownPlugin(VOID)
     DebugSpewAlways("Shutting down MQ2XAssist");
 	RemoveCommand("/xtarget");
     AddCommand("/xtarget",cmdXTarget);
-    //Remove commands, MQ2Data items, hooks, etc.
-    //RemoveMQ2Benchmark(bmMyBenchmark);
-    //RemoveCommand("/mycommand");
-    //RemoveXMLFile("MQUI_MyXMLFile.xml");
+	RemoveMQ2Data("XAssist");
+	delete pXAssistType;
 }
 int checkcnt = 0;
 PSPAWNINFO oldtarget = 0;
