@@ -5,31 +5,38 @@
 // are shown below. Remove the ones your plugin does not use.  Always use Initialize
 // and Shutdown for setup and cleanup, do NOT do it in DllMain.
 
-
-
 #include "../MQ2Plugin.h"
 
+PreSetup("MQ2XAssist");
 PLUGIN_VERSION(1.0);
 
-PreSetup("MQ2XAssist");
-#define DEBUGTHIS 1
-int AssistID = 0;
+constexpr bool DEBUGXASSIST = false;
 
-class MQ2XAssistType : public MQ2Type {
+int AssistID = 0;
+int checkcnt = 0;
+int xtcnt = -1;
+fEQCommand cmdXTarget;
+std::string assistname;
+PSPAWNINFO oldtarget = 0;
+std::string assname;
+class MQ2XAssistType* pXAssistType = nullptr;
+
+class MQ2XAssistType : public MQ2Type
+{
 public:
 	enum Members {
 		XTFullHaterCount,
 		XTXAggroCount
 	};
 
-	MQ2XAssistType() :MQ2Type("XAssist") 
+	MQ2XAssistType() :MQ2Type("XAssist")
 	{
 		TypeMember(XTFullHaterCount);
 		TypeMember(XTXAggroCount);
 	}
 	~MQ2XAssistType() {}
 
-	bool GetMember(MQ2VARPTR VarPtr, PCHAR Member, PCHAR Index, MQ2TYPEVAR& Dest) 
+	bool GetMember(MQ2VARPTR VarPtr, PCHAR Member, PCHAR Index, MQ2TYPEVAR& Dest)
 	{
 		PMQ2TYPEMEMBER pMember = MQ2XAssistType::FindMember(Member);
 		if (!pMember)
@@ -48,16 +55,16 @@ public:
 				Dest.Int = 0;
 				if (IsNumber(Index)) {
 					int param_aggro = atoi(Index);
-					if (param_aggro < 1) 
+					if (param_aggro < 1)
 						param_aggro = 1;
-					if (param_aggro > 1000) 
+					if (param_aggro > 1000)
 						param_aggro = 1000;
 					Dest.Int = getXTCountByAggro(param_aggro);
 				}
 				else {
 					Dest.Int = getXTCountByAggro();
 				}
-						
+
 				Dest.Type = pIntType;
 				return true;
 			default:
@@ -66,11 +73,11 @@ public:
 		}
 	}
 
-	bool FromData(MQ2VARPTR& VarPtr, MQ2TYPEVAR& Source) 
+	bool FromData(MQ2VARPTR& VarPtr, MQ2TYPEVAR& Source)
 	{
 		return false;
 	}
-	bool FromString(MQ2VARPTR& VarPtr, PCHAR Source) 
+	bool FromString(MQ2VARPTR& VarPtr, PCHAR Source)
 	{
 		return false;
 	}
@@ -80,7 +87,7 @@ private:
 		Calculate the total number of XT Auto Haters less than the passed  aggro value.
 		@return Total number of XTarget Auto Haters less than the passed aggro percentage.
 	*/
-	int getXTCountByAggro(int aggro_check_pct = 1000) 
+	int getXTCountByAggro(int aggro_check_pct = 1000)
 {
 		// Default return
 		int aggrocnt = 0;
@@ -112,7 +119,6 @@ private:
 		return aggrocnt;
 	}
 };
-class MQ2XAssistType* pXAssistType = nullptr;
 
 BOOL XAssistData(char* szIndex, MQ2TYPEVAR& Dest)
 {
@@ -120,9 +126,6 @@ BOOL XAssistData(char* szIndex, MQ2TYPEVAR& Dest)
 	Dest.Type = pXAssistType;
 	return true;
 }
-
-fEQCommand			cmdXTarget;
-std::string assistname;
 
 void SetXTarget(int slot,int id)
 {
@@ -132,7 +135,6 @@ void SetXTarget(int slot,int id)
 		{
 			if (slot < pChar->pXTargetMgr->XTargetSlots.Count)
 			{
-
 				if (id)
 				{
 					if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(id))
@@ -153,7 +155,8 @@ void SetXTarget(int slot,int id)
 		}
 	}
 }
-VOID XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
+
+void XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 {
 	CHAR szCmd[MAX_STRING] = { 0 };
 	GetArg(szCmd,szLine, 1);
@@ -184,7 +187,6 @@ VOID XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 	}
 	else if (!_stricmp(szCmd, "id"))
 	{
-		
 		CHAR szSlot[MAX_STRING] = { 0 };
 		CHAR szID[MAX_STRING] = { 0 };
 		GetArg(szID, szLine, 2);
@@ -198,41 +200,22 @@ VOID XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 	}
 	cmdXTarget(pChar, szLine);
 }
+
 void AddXAssistCmd()
 {
-    int i = 0;
-    // Import EQ commands
-    PCMDLIST pCmdListOrig = (PCMDLIST)EQADDR_CMDLIST;
-    for (i=0;pCmdListOrig[i].fAddress != 0;i++) {
-        if (!strcmp(pCmdListOrig[i].szName,"/xtarget")) {
-            cmdXTarget = (fEQCommand)pCmdListOrig[i].fAddress;
+	int i = 0;
+	// Import EQ commands
+	PCMDLIST pCmdListOrig = (PCMDLIST)EQADDR_CMDLIST;
+	for (i=0;pCmdListOrig[i].fAddress != 0;i++) {
+		if (!strcmp(pCmdListOrig[i].szName,"/xtarget")) {
+			cmdXTarget = (fEQCommand)pCmdListOrig[i].fAddress;
 			break;
-        }
-    }
-    RemoveCommand("/xtarget");
-    AddCommand("/xtarget",XTargetCmd);
-}
-// Called once, when the plugin is to initialize
-PLUGIN_API VOID InitializePlugin(VOID)
-{
-    DebugSpewAlways("Initializing MQ2XAssist");
-	AddXAssistCmd();
-	AddMQ2Data("XAssist", XAssistData);
-	pXAssistType = new MQ2XAssistType;
+		}
+	}
+	RemoveCommand("/xtarget");
+	AddCommand("/xtarget",XTargetCmd);
 }
 
-// Called once, when the plugin is to shutdown
-PLUGIN_API VOID ShutdownPlugin(VOID)
-{
-    DebugSpewAlways("Shutting down MQ2XAssist");
-	RemoveCommand("/xtarget");
-    AddCommand("/xtarget",cmdXTarget);
-	RemoveMQ2Data("XAssist");
-	delete pXAssistType;
-}
-int checkcnt = 0;
-PSPAWNINFO oldtarget = 0;
-std::string assname;
 int OnXTarget(ExtendedTargetList*lst, int spawnid,int *out)
 {
 	*out = -1;
@@ -247,8 +230,27 @@ int OnXTarget(ExtendedTargetList*lst, int spawnid,int *out)
 	}
 	return cnt;
 }
-int xtcnt = -1;
-PLUGIN_API VOID OnPulse(VOID)
+
+// Called once, when the plugin is to initialize
+PLUGIN_API VOID InitializePlugin()
+{
+	DebugSpewAlways("Initializing MQ2XAssist");
+	AddXAssistCmd();
+	AddMQ2Data("XAssist", XAssistData);
+	pXAssistType = new MQ2XAssistType;
+}
+
+// Called once, when the plugin is to shutdown
+PLUGIN_API VOID ShutdownPlugin()
+{
+	DebugSpewAlways("Shutting down MQ2XAssist");
+	RemoveCommand("/xtarget");
+	AddCommand("/xtarget",cmdXTarget);
+	RemoveMQ2Data("XAssist");
+	delete pXAssistType;
+}
+
+PLUGIN_API VOID OnPulse()
 {
 	if (GetGameState() == GAMESTATE_INGAME && AssistID) {
 		if (checkcnt > 20)
@@ -272,9 +274,9 @@ PLUGIN_API VOID OnPulse(VOID)
 										xtcnt = OnXTarget(pChar->pXTargetMgr, pXTarget->SpawnID,&out);
 										if (!xtcnt)
 										{
-											#ifdef DEBUGTHIS
-											WriteChatf("Setting XTarget 1 to %d (%s)", pXTarget->SpawnID, pSpawn->AssistName);
-											#endif
+											if(DEBUGXASSIST) {
+												WriteChatf("Setting XTarget 1 to %d (%s)", pXTarget->SpawnID, pSpawn->AssistName);
+											}
 											SetXTarget(0, pXTarget->SpawnID);
 											assname = pSpawn->AssistName;
 											return;
@@ -294,18 +296,18 @@ PLUGIN_API VOID OnPulse(VOID)
 								xtcnt = OnXTarget(pChar->pXTargetMgr, pChar->pXTargetMgr->XTargetSlots[0].SpawnID,&out);
 								if (xtcnt > 1)
 								{
-									#ifdef DEBUGTHIS
-									WriteChatf("Clearing XTarget %d because it's a duplicate.",out);
-									#endif
+									if(DEBUGXASSIST) {
+										WriteChatf("Clearing XTarget %d because it's a duplicate.",out);
+									}
 									SetXTarget(out, 0);
 								}
 								if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByID(pChar->pXTargetMgr->XTargetSlots[0].SpawnID))
 								{
 									if (pXTarget->Type == SPAWN_CORPSE)
 									{
-										#ifdef DEBUGTHIS
-										WriteChatf("Clearing XTarget 1 because it's a corpse.");
-										#endif
+										if(DEBUGXASSIST) {
+											WriteChatf("Clearing XTarget 1 because it's a corpse.");
+										}
 										SetXTarget(0, 0);
 									}
 								}
