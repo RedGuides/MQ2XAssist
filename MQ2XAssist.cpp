@@ -165,7 +165,6 @@ void XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 		WriteChatColor("Usage: /xtarget id #id #slot",CONCOLOR_YELLOW);
 		WriteChatColor("Usage: /xtarget assist #id",CONCOLOR_YELLOW);
 		cmdXTarget(pChar, szLine);
-		RETURN(0);
 	}
 	else if (!_stricmp(szCmd, "assist"))
 	{
@@ -183,7 +182,6 @@ void XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 			assistname.clear();
 			WriteChatf("\agMQ2XAssist\ax::\ayNot XAssisting anyone anymore.\ax.", pSpawn->Name);
 		}
-		RETURN(0);
 	}
 	else if (!_stricmp(szCmd, "id"))
 	{
@@ -196,9 +194,11 @@ void XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 		if (slot > 0)
 			slot--;
 		SetXTarget(slot, id);
-		RETURN(0);
 	}
-	cmdXTarget(pChar, szLine);
+	else
+	{
+		cmdXTarget(pChar, szLine);
+	}
 }
 
 void AddXAssistCmd()
