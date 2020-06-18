@@ -68,9 +68,9 @@ public:
 				Dest.Type = pIntType;
 				return true;
 			default:
-				return false;
 				break;
 		}
+		return false;
 	}
 
 	bool FromData(MQ2VARPTR& VarPtr, MQ2TYPEVAR& Source)
@@ -318,12 +318,14 @@ PLUGIN_API VOID OnPulse()
 			}
 			else {
 				//guys id is gone lets pick it up again if we can
-				if (assistname.size())
+				if (!assistname.empty())
 				{
-					if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByName((char*)assistname.c_str()))
+					// FIX ME:  Don't cast a constant to a mutable type, but GetSpawnByName should take const
+					pSpawn = (PSPAWNINFO)GetSpawnByName((char*)assistname.c_str());
+					if (pSpawn != nullptr)
 					{
 						AssistID = pSpawn->SpawnID;
-						WriteChatf("\agMQ2XAssist\ax::\aySetting new AssistID for \am%s\ay to %d because it changed.\ax.", pSpawn->Name,AssistID);
+						WriteChatf("\agMQ2XAssist\ax::\aySetting new AssistID for \am%s\ay to %d because it changed.\ax.", pSpawn->Name, AssistID);
 					}
 				}
 			}
