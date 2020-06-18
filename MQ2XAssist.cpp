@@ -1,6 +1,6 @@
 // MQ2XAssist.cpp
 
-#include "../MQ2Plugin.h"
+#include <mq/Plugin.h>
 
 PreSetup("MQ2XAssist");
 PLUGIN_VERSION(1.3);
@@ -31,9 +31,9 @@ public:
 	}
 	~MQ2XAssistType() {}
 
-	bool GetMember(MQ2VARPTR VarPtr, PCHAR Member, PCHAR Index, MQ2TYPEVAR& Dest)
+	bool GetMember(MQVarPtr VarPtr, PCHAR Member, PCHAR Index, MQTypeVar& Dest)
 	{
-		PMQ2TYPEMEMBER pMember = MQ2XAssistType::FindMember(Member);
+		MQTypeMember* pMember = MQ2XAssistType::FindMember(Member);
 		if (!pMember)
 			return false;
 		if (!pLocalPlayer)
@@ -42,7 +42,7 @@ public:
 			// Return the total number of AutoHater mobs in the XTarget window including the current target. Expansion of ${Me.XTHaterCount}
 			case XTFullHaterCount:
 				Dest.Int = getXTCountByAggro();
-				Dest.Type = pIntType;
+				Dest.Type = mq::datatypes::pIntType;
 				return true;
 			// Return the total number of Autohater mobs less than the passed value -- uses an expanded range over ${Me.XTAggroCount}
 			case XTXAggroCount:
@@ -58,7 +58,7 @@ public:
 					Dest.Int = getXTCountByAggro();
 				}
 
-				Dest.Type = pIntType;
+				Dest.Type = mq::datatypes::pIntType;
 				return true;
 			default:
 				break;
@@ -66,11 +66,11 @@ public:
 		return false;
 	}
 
-	bool FromData(MQ2VARPTR& VarPtr, MQ2TYPEVAR& Source)
+	bool FromData(MQVarPtr& VarPtr, MQTypeVar& Source)
 	{
 		return false;
 	}
-	bool FromString(MQ2VARPTR& VarPtr, PCHAR Source)
+	bool FromString(MQVarPtr& VarPtr, PCHAR Source)
 	{
 		return false;
 	}
@@ -115,7 +115,7 @@ private:
 	}
 };
 
-BOOL XAssistData(char* szIndex, MQ2TYPEVAR& Dest)
+bool XAssistData(const char* szIndex, MQTypeVar& Dest)
 {
 	Dest.DWord = 1;
 	Dest.Type = pXAssistType;
@@ -314,7 +314,7 @@ void AddXAssistCmd()
 }
 
 // Called once, when the plugin is to initialize
-PLUGIN_API VOID InitializePlugin()
+PLUGIN_API void InitializePlugin()
 {
 	DebugSpewAlways("Initializing MQ2XAssist");
 	AddXAssistCmd();
@@ -323,16 +323,16 @@ PLUGIN_API VOID InitializePlugin()
 }
 
 // Called once, when the plugin is to shutdown
-PLUGIN_API VOID ShutdownPlugin()
+PLUGIN_API void ShutdownPlugin()
 {
 	DebugSpewAlways("Shutting down MQ2XAssist");
 	RemoveCommand("/xtarget");
-	AddCommand("/xtarget",cmdXTarget);
+	AddCommand("/xtarget", cmdXTarget);
 	RemoveMQ2Data("XAssist");
 	delete pXAssistType;
 }
 
-PLUGIN_API VOID OnPulse()
+PLUGIN_API void OnPulse()
 {
 	if (GetGameState() == GAMESTATE_INGAME || !AssistID)
 		return;
