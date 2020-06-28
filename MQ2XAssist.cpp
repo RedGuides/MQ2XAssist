@@ -1,23 +1,11 @@
-// MQ2XAssist.cpp : Defines the entry point for the DLL application.
-//
+// MQ2XAssist.cpp
 
-// PLUGIN_API is only to be used for callbacks.  All existing callbacks at this time
-// are shown below. Remove the ones your plugin does not use.  Always use Initialize
-// and Shutdown for setup and cleanup, do NOT do it in DllMain.
-// Version 1.0 By EqMule
-//							- Initial Release
-// Version 1.1 By drwhomphd
-//							- Added TLO etc
-// Version 1.2 By Knightly
-//							- Cleanup etc
-// Version 1.3 By EqMule
-//							- Added Dynamic setting of xtarget so it only uses unused auto hater slots
 #include "../MQ2Plugin.h"
 
 PreSetup("MQ2XAssist");
 PLUGIN_VERSION(1.3);
 
-constexpr bool DEBUGXASSIST = true;
+constexpr bool DEBUGXASSIST = false;
 
 int AssistID = 0;
 int checkcnt = 0;
@@ -26,7 +14,6 @@ fEQCommand cmdXTarget;
 std::string assistname;
 PSPAWNINFO oldtarget = 0;
 std::string assname;
-std::map<int,int>Duplicates;
 class MQ2XAssistType* pXAssistType = nullptr;
 
 class MQ2XAssistType : public MQ2Type
@@ -89,6 +76,7 @@ public:
 	{
 		return false;
 	}
+
 private:
 	/**
 		getXTCountByAggro
@@ -96,7 +84,7 @@ private:
 		@return Total number of XTarget Auto Haters less than the passed aggro percentage.
 	*/
 	int getXTCountByAggro(int aggro_check_pct = 1000)
-{
+	{
 		// Default return
 		int aggrocnt = 0;
 
@@ -134,46 +122,14 @@ BOOL XAssistData(char* szIndex, MQ2TYPEVAR& Dest)
 	Dest.Type = pXAssistType;
 	return true;
 }
-int FindEmptyXTargetSlot(int SpawnID)
+
+void SetXTarget(int slot, int id)
 {
 	if (PCHARINFO pChar = GetCharInfo())
 	{
 		if (pChar->pXTargetMgr)
 		{
-			for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
-			{
-				if (pChar->pXTargetMgr->XTargetSlots[i].SpawnID == SpawnID)
-				{
-					return i;
-				}
-			}
-			for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
-			{
-				if (pChar->pXTargetMgr->XTargetSlots[i].XTargetSlotStatus == eXTSlotEmpty && pChar->pXTargetMgr->XTargetSlots[i].xTargetType == 1)
-				{
-					return i;
-				}
-			}
-		}
-	}
-	return -1;
-}
-int SetXTarget(int slot,int id)
-{
-	if (PCHARINFO pChar = GetCharInfo())
-	{
-		if (pChar->pXTargetMgr)
-		{
-			if (slot == -1)//autodetect
-			{
-				slot = FindEmptyXTargetSlot(id);
-				if (slot == -1)
-				{
-					//no need to do anything it's already on there
-					return -1;
-				}
-			}
-			if (slot < pChar->pXTargetMgr->XTargetSlots.Count)
+			if (slot >= 0 && slot < pChar->pXTargetMgr->XTargetSlots.Count)
 			{
 				if (id)
 				{
@@ -185,7 +141,8 @@ int SetXTarget(int slot,int id)
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotCurrentZone;
 					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = 1;//autohater
 				}
-				else {
+				else
+				{
 					pChar->pXTargetMgr->XTargetSlots[slot].Name[0] = '\0';
 					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = 0;
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotEmpty;
@@ -194,71 +151,88 @@ int SetXTarget(int slot,int id)
 			}
 		}
 	}
-	return slot;
 }
 
 void CleanUpXTarget()
 {
-	if (PCHARINFO pChar = GetCharInfo())
+	PCHARINFO pChar = GetCharInfo();
+	std::set<int> duplicates;
+
+	SPAWNINFO* pAssistSpawn = (SPAWNINFO*)GetSpawnByID(AssistID);
+
+	for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
 	{
-		if (pChar->pXTargetMgr)
+		if (int xid = pChar->pXTargetMgr->XTargetSlots[i].SpawnID)
 		{
-			Duplicates.clear();
-			for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
+			if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByID(xid))
 			{
-				if (int xid = pChar->pXTargetMgr->XTargetSlots[i].SpawnID)
+				if (pXTarget->Type == SPAWN_CORPSE && pXTarget->Deity == 0)
 				{
-					if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByID(xid))
-					{
-						if (pXTarget->Type == SPAWN_CORPSE && pXTarget->Deity==0)
-						{
-							if (DEBUGXASSIST) {
-								WriteChatf("Clearing XTarget %d because it's a npc corpse.", i+1);
-							}
-							SetXTarget(i, 0);
-							continue;
-						}
-						if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(AssistID))
-						{
-							if (DistanceToSpawn3D(pSpawn, pXTarget) > 1500)
-							{
-								if (DEBUGXASSIST) {
-									WriteChatf("Clearing XTarget %d because it's too far away from our assist.", i+1);
-								}
-								SetXTarget(i, 0);
-								continue;
-							}
-						}
+					if (DEBUGXASSIST) {
+						WriteChatf("Clearing XTarget %d because it's a npc corpse.", i + 1);
 					}
-					if (Duplicates.find(xid) != Duplicates.end())
-					{
-						if (DEBUGXASSIST) {
-							WriteChatf("Clearing XTarget %d because it's a duplicate.", i);
-						}
-						SetXTarget(i, 0);
-						continue;
+
+					SetXTarget(i, 0);
+					continue;
+				}
+
+				if (pAssistSpawn && DistanceToSpawn3D(pAssistSpawn, pXTarget) > 1500)
+				{
+					if (DEBUGXASSIST) {
+						WriteChatf("Clearing XTarget %d because it's too far away from our assist.", i + 1);
 					}
-					Duplicates[i] = xid;
+
+					SetXTarget(i, 0);
+					continue;
 				}
 			}
+
+			if (duplicates.count(xid))
+			{
+				if (DEBUGXASSIST) {
+					WriteChatf("Clearing XTarget %d because it's a duplicate.", i);
+				}
+
+				SetXTarget(i, 0);
+				continue;
+			}
+
+			duplicates.insert(xid);
 		}
 	}
 }
-int GetXTargetSlotByID(int SpawnID)
+
+// Get an empty XTarget slot. If none exist, returns -1
+int FindEmptyXTargetSlot()
 {
-	if (PCHARINFO pChar = GetCharInfo())
+	CHARINFO* pChar = GetCharInfo();
+
+	for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
 	{
-		if (pChar->pXTargetMgr)
+		XTARGETSLOT& slot = pChar->pXTargetMgr->XTargetSlots[i];
+
+		if (slot.XTargetSlotStatus == eXTSlotEmpty && slot.xTargetType == 1)
 		{
-			for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
-			{
-				if (pChar->pXTargetMgr->XTargetSlots[i].SpawnID == SpawnID)
-				{
-					return i;
-				}
-			}
+			return i;
 		}
 	}
+
+	return -1;
+}
+
+// Get the XTarget slot for a specified SpawnID. If not found, returns -1.
+int GetXTargetSlotByID(int SpawnID)
+{
+	CHARINFO* pChar = GetCharInfo();
+
+	for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
+	{
+		if (pChar->pXTargetMgr->XTargetSlots[i].SpawnID == SpawnID)
+		{
+			return i;
+		}
+	}
+
 	return -1;
 }
 
@@ -309,23 +283,23 @@ void XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 
 void AddXAssistCmd()
 {
-    int i = 0;
-    // Import EQ commands
-    PCMDLIST pCmdListOrig = (PCMDLIST)EQADDR_CMDLIST;
-    for (i=0;pCmdListOrig[i].fAddress != 0;i++) {
-        if (!strcmp(pCmdListOrig[i].szName,"/xtarget")) {
-            cmdXTarget = (fEQCommand)pCmdListOrig[i].fAddress;
+	int i = 0;
+	// Import EQ commands
+	PCMDLIST pCmdListOrig = (PCMDLIST)EQADDR_CMDLIST;
+	for (i=0;pCmdListOrig[i].fAddress != 0;i++) {
+		if (!strcmp(pCmdListOrig[i].szName,"/xtarget")) {
+			cmdXTarget = (fEQCommand)pCmdListOrig[i].fAddress;
 			break;
-        }
-    }
-    RemoveCommand("/xtarget");
-    AddCommand("/xtarget",XTargetCmd);
+		}
+	}
+	RemoveCommand("/xtarget");
+	AddCommand("/xtarget",XTargetCmd);
 }
 
 // Called once, when the plugin is to initialize
 PLUGIN_API VOID InitializePlugin()
 {
-    DebugSpewAlways("Initializing MQ2XAssist");
+	DebugSpewAlways("Initializing MQ2XAssist");
 	AddXAssistCmd();
 	AddMQ2Data("XAssist", XAssistData);
 	pXAssistType = new MQ2XAssistType;
@@ -334,73 +308,84 @@ PLUGIN_API VOID InitializePlugin()
 // Called once, when the plugin is to shutdown
 PLUGIN_API VOID ShutdownPlugin()
 {
-    DebugSpewAlways("Shutting down MQ2XAssist");
+	DebugSpewAlways("Shutting down MQ2XAssist");
 	RemoveCommand("/xtarget");
-    AddCommand("/xtarget",cmdXTarget);
+	AddCommand("/xtarget",cmdXTarget);
 	RemoveMQ2Data("XAssist");
 	delete pXAssistType;
 }
 
 PLUGIN_API VOID OnPulse()
 {
-	if (GetGameState() == GAMESTATE_INGAME && AssistID) {
-		if (checkcnt > 20)
+	if (GetGameState() == GAMESTATE_INGAME || !AssistID)
+		return;
+	PCHARINFO pChar = GetCharInfo();
+	if (!pChar || !pChar->pXTargetMgr)
+		return;
+
+	// Check every 20 frames
+	if (checkcnt++ > 20)
+	{
+		checkcnt = 0;
+
+		// if it's myself we should not mess with adding it manually to xtarget
+		if (AssistID == ((PSPAWNINFO)pLocalPlayer)->SpawnID)
+			return;
+
+		if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(AssistID))
 		{
-			checkcnt = 0;
-			if (AssistID == ((PSPAWNINFO)pLocalPlayer)->SpawnID)
-				return;//if it's myself we should not mess with adding it manually to xtarget
-			if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(AssistID))
+			if (pSpawn->AssistName[0])
 			{
-				if (PCHARINFO pChar = GetCharInfo())
+				if (pSpawn->AssistName != assname)
 				{
-					if (pSpawn->AssistName[0])
+					if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByName(pSpawn->AssistName))
 					{
-						if (pSpawn->AssistName != assname)
+						if (pXTarget->SpawnID != AssistID)
 						{
-							if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByName(pSpawn->AssistName))
+							if (pXTarget->Type == SPAWN_NPC)
 							{
-								if (pXTarget->SpawnID != AssistID)
+								int slot = GetXTargetSlotByID(AssistID);
+								if (slot == -1) //not on there already so lets add it
 								{
-									if (pXTarget->Type == SPAWN_NPC)
+									slot = FindEmptyXTargetSlot();
+									if (slot == -1)
 									{
-										//if (Distance3DToSpawn((PSPAWNINFO)pLocalPlayer, pXTarget) < 250)
-										{
-											int slot = GetXTargetSlotByID(AssistID);
-											if (slot == -1)//not on there already so lets add it
-											{
-												int slot = SetXTarget(-1, pXTarget->SpawnID);
-												if(DEBUGXASSIST) {
-													WriteChatf("Setting XTarget %d to %d (%s)", slot+1, pXTarget->SpawnID, pSpawn->AssistName);
-												}
-												assname = pSpawn->AssistName;
-												return;
-											}
+										if (DEBUGXASSIST) {
+											WriteChatf("Failed to set XTarget to %d (%s) - no more slots", pXTarget->SpawnID, pSpawn->AssistName);
 										}
+
+										return;
 									}
+
+									SetXTarget(slot, pXTarget->SpawnID);
+									if (DEBUGXASSIST) {
+										WriteChatf("Setting XTarget %d to %d (%s)", slot+1, pXTarget->SpawnID, pSpawn->AssistName);
+									}
+
+									assname = pSpawn->AssistName;
+									return;
 								}
 							}
 						}
 					}
-					if (pChar->pXTargetMgr)
-					{
-						CleanUpXTarget();
-					}
 				}
 			}
-			else {
-				//guys id is gone lets pick it up again if we can
-				if (!assistname.empty())
+
+			CleanUpXTarget();
+		}
+		else
+		{
+			// guys id is gone lets pick it up again if we can
+			if (!assistname.empty())
+			{
+				// FIX ME:  Don't cast a constant to a mutable type, but GetSpawnByName should take const
+				pSpawn = (PSPAWNINFO)GetSpawnByName((char*)assistname.c_str());
+				if (pSpawn != nullptr)
 				{
-					// FIX ME:  Don't cast a constant to a mutable type, but GetSpawnByName should take const
-					pSpawn = (PSPAWNINFO)GetSpawnByName((char*)assistname.c_str());
-					if (pSpawn != nullptr)
-					{
-						AssistID = pSpawn->SpawnID;
-						WriteChatf("\agMQ2XAssist\ax::\aySetting new AssistID for \am%s\ay to %d because it changed.\ax.", pSpawn->Name, AssistID);
-					}
+					AssistID = pSpawn->SpawnID;
+					WriteChatf("\agMQ2XAssist\ax::\aySetting new AssistID for \am%s\ay to %d because it changed.\ax.", pSpawn->Name, AssistID);
 				}
 			}
 		}
-		checkcnt++;
 	}
 }
