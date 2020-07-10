@@ -344,7 +344,7 @@ PLUGIN_API VOID OnPulse()
 						{
 							if (pXTarget->Type == SPAWN_NPC)
 							{
-								int slot = GetXTargetSlotByID(AssistID);
+								int slot = GetXTargetSlotByID(pXTarget->SpawnID);
 								if (slot == -1) //not on there already so lets add it
 								{
 									slot = FindEmptyXTargetSlot();
