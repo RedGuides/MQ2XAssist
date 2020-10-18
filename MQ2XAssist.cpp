@@ -397,8 +397,7 @@ PLUGIN_API void OnPulse()
 			// guys id is gone lets pick it up again if we can
 			if (!assistname.empty())
 			{
-				// FIX ME:  Don't cast a constant to a mutable type, but GetSpawnByName should take const
-				pSpawn = (PSPAWNINFO)GetSpawnByName((char*)assistname.c_str());
+				pSpawn = (PSPAWNINFO)GetSpawnByName(assistname.c_str());
 				if (pSpawn != nullptr)
 				{
 					AssistID = pSpawn->SpawnID;
