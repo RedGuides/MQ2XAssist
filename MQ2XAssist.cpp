@@ -144,7 +144,7 @@ void SetXTarget(int slot, int id)
 				}
 				else
 				{
-					assistname.clear();
+					mobname.clear();
 					pChar->pXTargetMgr->XTargetSlots[slot].Name[0] = '\0';
 					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = 0;
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotEmpty;
