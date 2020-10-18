@@ -144,6 +144,7 @@ void SetXTarget(int slot, int id)
 				}
 				else
 				{
+					assistname.clear();
 					pChar->pXTargetMgr->XTargetSlots[slot].Name[0] = '\0';
 					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = 0;
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotEmpty;
@@ -334,7 +335,7 @@ PLUGIN_API void ShutdownPlugin()
 
 PLUGIN_API void OnPulse()
 {
-	if (GetGameState() == GAMESTATE_INGAME || !AssistID)
+	if (GetGameState() != GAMESTATE_INGAME || !AssistID)
 		return;
 	PCHARINFO pChar = GetCharInfo();
 	if (!pChar || !pChar->pXTargetMgr)
