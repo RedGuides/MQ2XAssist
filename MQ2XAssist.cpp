@@ -155,6 +155,14 @@ void SetXTarget(int slot, int id)
 	}
 }
 
+void ClearXTargetWithDebugMessage(const char* szMessage, const int iXTarSlotActual)
+{
+	if (DebugToggle) {
+		WriteChatf("\arMQ2XAssist::\axClearing XTarget %d because %s", iXTarSlotActual + 1, szMessage);
+	}
+	SetXTarget(iXTarSlotActual, 0);
+}
+
 void CleanUpXTarget()
 {
 	PCHARINFO pChar = GetCharInfo();
@@ -166,40 +174,33 @@ void CleanUpXTarget()
 	{
 		if (int xid = pChar->pXTargetMgr->XTargetSlots[i].SpawnID)
 		{
-			if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByID(xid))
-			{
-				if (pXTarget->Type == SPAWN_CORPSE && pXTarget->Deity == 0)
-				{
-					if (DebugToggle) {
-						WriteChatf("\arMQ2XAssist::\axClearing XTarget %d because it's a npc corpse.", i + 1);
-					}
-
-					SetXTarget(i, 0);
-					continue;
-				}
-
-				if (pAssistSpawn && DistanceToSpawn3D(pAssistSpawn, pXTarget) > 1500)
-				{
-					if (DebugToggle) {
-						WriteChatf("\arMQ2XAssist::\axClearing XTarget %d because it's too far away from our assist.", i + 1);
-					}
-
-					SetXTarget(i, 0);
-					continue;
-				}
-			}
-
 			if (duplicates.count(xid))
 			{
-				if (DebugToggle) {
-					WriteChatf("\arMQ2XAssist::\axClearing XTarget %d because it's a duplicate.", i);
-				}
-
-				SetXTarget(i, 0);
-				continue;
+				ClearXTargetWithDebugMessage("it's a duplicate.", i);
 			}
-
-			duplicates.insert(xid);
+			else
+			{
+				if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByID(xid))
+				{
+					if (pXTarget->Type == SPAWN_CORPSE && pXTarget->Deity == 0)
+					{
+						ClearXTargetWithDebugMessage("it's an NPC Corpse.", i);
+					}
+					else if (pAssistSpawn && DistanceToSpawn3D(pAssistSpawn, pXTarget) > 1500)
+					{
+						ClearXTargetWithDebugMessage("it's too far away from our assist.", i);
+					}
+					else
+					{
+						// We didn't clear the xtarget, so insert it into the duplicate set.
+						duplicates.insert(xid);
+					}
+				}
+				else
+				{
+					ClearXTargetWithDebugMessage("it doesn't exist.", i);
+				}
+			}
 		}
 	}
 }
