@@ -144,6 +144,7 @@ void SetXTarget(int slot, int id)
 				}
 				else
 				{
+					mobname.clear();
 					pChar->pXTargetMgr->XTargetSlots[slot].Name[0] = '\0';
 					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = 0;
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotEmpty;
@@ -327,14 +328,14 @@ PLUGIN_API VOID ShutdownPlugin()
 {
 	DebugSpewAlways("Shutting down MQ2XAssist");
 	RemoveCommand("/xtarget");
-	AddCommand("/xtarget",cmdXTarget);
+	AddCommand("/xtarget", cmdXTarget);
 	RemoveMQ2Data("XAssist");
 	delete pXAssistType;
 }
 
 PLUGIN_API VOID OnPulse()
 {
-	if (GetGameState() == GAMESTATE_INGAME || !AssistID)
+	if (GetGameState() != GAMESTATE_INGAME || !AssistID)
 		return;
 	PCHARINFO pChar = GetCharInfo();
 	if (!pChar || !pChar->pXTargetMgr)
