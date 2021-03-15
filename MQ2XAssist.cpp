@@ -29,7 +29,6 @@ public:
 		TypeMember(XTFullHaterCount);
 		TypeMember(XTXAggroCount);
 	}
-	~MQ2XAssistType() {}
 
 	virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override
 	{
@@ -63,15 +62,6 @@ public:
 			default:
 				break;
 		}
-		return false;
-	}
-
-	bool FromData(MQVarPtr& VarPtr, MQTypeVar& Source)
-	{
-		return false;
-	}
-	virtual bool FromString(MQVarPtr& VarPtr, const char* Source) override
-	{
 		return false;
 	}
 
