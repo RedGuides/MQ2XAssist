@@ -86,7 +86,7 @@ private:
 		if (!pAggroInfo) return aggrocnt;
 
 		for (int i = 0; i < xtm->XTargetSlots.Count; i++) {
-			XTARGETSLOT xts = xtm->XTargetSlots[i];
+			ExtendedTargetSlot xts = xtm->XTargetSlots[i];
 			DWORD spID = xts.SpawnID;
 			if (spID && xts.xTargetType == XTARGET_AUTO_HATER) {
 				if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(spID)) {
@@ -202,7 +202,7 @@ int FindEmptyXTargetSlot()
 
 	for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
 	{
-		XTARGETSLOT& slot = pChar->pXTargetMgr->XTargetSlots[i];
+		ExtendedTargetSlot& slot = pChar->pXTargetMgr->XTargetSlots[i];
 
 		if (slot.XTargetSlotStatus == eXTSlotEmpty && slot.xTargetType == 1)
 		{
@@ -359,7 +359,7 @@ PLUGIN_API void OnPulse()
 									slot = FindEmptyXTargetSlot();
 									if (slot == -1)
 									{
-										if (DebugToggle) 
+										if (DebugToggle)
 										{
 											WriteChatf("\arMQ2XAssist::\axFailed to set XTarget to %d (%s) - no more slots", pXTarget->SpawnID, pSpawn->AssistName);
 										}
@@ -368,7 +368,7 @@ PLUGIN_API void OnPulse()
 									}
 
 									SetXTarget(slot, pXTarget->SpawnID);
-									if (DebugToggle) 
+									if (DebugToggle)
 									{
 										WriteChatf("\arMQ2XAssist::\axSetting XTarget %d to %d (%s)", slot+1, pXTarget->SpawnID, pSpawn->AssistName);
 									}
