@@ -353,28 +353,30 @@ PLUGIN_API void OnPulse()
 						{
 							if (pXTarget->Type == SPAWN_NPC)
 							{
-								int slot = GetXTargetSlotByID(pXTarget->SpawnID);
-								if (slot == -1) //not on there already so lets add it
-								{
-									slot = FindEmptyXTargetSlot();
-									if (slot == -1)
+								if (DistanceToSpawn3D(pSpawn, pXTarget) > 1500) {
+									int slot = GetXTargetSlotByID(pXTarget->SpawnID);
+									if (slot == -1) //not on there already so lets add it
 									{
-										if (DebugToggle)
+										slot = FindEmptyXTargetSlot();
+										if (slot == -1)
 										{
-											WriteChatf("\arMQ2XAssist::\axFailed to set XTarget to %d (%s) - no more slots", pXTarget->SpawnID, pSpawn->AssistName);
+											if (DebugToggle)
+											{
+												WriteChatf("\arMQ2XAssist::\axFailed to set XTarget to %d (%s) - no more slots", pXTarget->SpawnID, pSpawn->AssistName);
+											}
+
+											return;
 										}
 
+										SetXTarget(slot, pXTarget->SpawnID);
+										if (DebugToggle)
+										{
+											WriteChatf("\arMQ2XAssist::\axSetting XTarget %d to %d (%s)", slot + 1, pXTarget->SpawnID, pSpawn->AssistName);
+										}
+
+										mobname = pSpawn->AssistName;
 										return;
 									}
-
-									SetXTarget(slot, pXTarget->SpawnID);
-									if (DebugToggle)
-									{
-										WriteChatf("\arMQ2XAssist::\axSetting XTarget %d to %d (%s)", slot+1, pXTarget->SpawnID, pSpawn->AssistName);
-									}
-
-									mobname = pSpawn->AssistName;
-									return;
 								}
 							}
 						}
