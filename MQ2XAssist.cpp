@@ -130,7 +130,7 @@ void SetXTarget(int slot, int id)
 						WriteChatf("\arMQ2XAssist::\axSetting XTarget. id:[%d] name:%s.", id, GetSpawnByID(id) != nullptr ? pChar->pXTargetMgr->XTargetSlots[slot].Name : "N/A");
 					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = id;
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotCurrentZone;
-					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = 1;//autohater
+					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = XTARGET_AUTO_HATER;
 				}
 				else
 				{
@@ -138,7 +138,7 @@ void SetXTarget(int slot, int id)
 					pChar->pXTargetMgr->XTargetSlots[slot].Name[0] = '\0';
 					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = 0;
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotEmpty;
-					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = 1;
+					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = XTARGET_AUTO_HATER;
 				}
 			}
 		}
@@ -204,7 +204,7 @@ int FindEmptyXTargetSlot()
 	{
 		ExtendedTargetSlot& slot = pChar->pXTargetMgr->XTargetSlots[i];
 
-		if (slot.XTargetSlotStatus == eXTSlotEmpty && slot.xTargetType == 1)
+		if (slot.XTargetSlotStatus == eXTSlotEmpty && slot.xTargetType == XTARGET_AUTO_HATER)
 		{
 			return i;
 		}
