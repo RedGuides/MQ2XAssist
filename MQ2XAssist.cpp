@@ -130,7 +130,7 @@ void SetXTarget(int slot, int id)
 						WriteChatf("\arMQ2XAssist::\axSetting XTarget. id:[%d] name:%s.", id, GetSpawnByID(id) != nullptr ? pChar->pXTargetMgr->XTargetSlots[slot].Name : "N/A");
 					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = id;
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotCurrentZone;
-					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = 1;//autohater
+					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = XTARGET_AUTO_HATER;
 				}
 				else
 				{
@@ -138,7 +138,7 @@ void SetXTarget(int slot, int id)
 					pChar->pXTargetMgr->XTargetSlots[slot].Name[0] = '\0';
 					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = 0;
 					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotEmpty;
-					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = 1;
+					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = XTARGET_AUTO_HATER;
 				}
 			}
 		}
@@ -204,7 +204,7 @@ int FindEmptyXTargetSlot()
 	{
 		ExtendedTargetSlot& slot = pChar->pXTargetMgr->XTargetSlots[i];
 
-		if (slot.XTargetSlotStatus == eXTSlotEmpty && slot.xTargetType == 1)
+		if (slot.XTargetSlotStatus == eXTSlotEmpty && slot.xTargetType == XTARGET_AUTO_HATER)
 		{
 			return i;
 		}
@@ -353,28 +353,31 @@ PLUGIN_API void OnPulse()
 						{
 							if (pXTarget->Type == SPAWN_NPC)
 							{
-								int slot = GetXTargetSlotByID(pXTarget->SpawnID);
-								if (slot == -1) //not on there already so lets add it
+								if (DistanceToSpawn3D(pSpawn, pXTarget) <= 1500)
 								{
-									slot = FindEmptyXTargetSlot();
-									if (slot == -1)
+									int slot = GetXTargetSlotByID(pXTarget->SpawnID);
+									if (slot == -1) //not on there already so lets add it
 									{
-										if (DebugToggle)
+										slot = FindEmptyXTargetSlot();
+										if (slot == -1)
 										{
-											WriteChatf("\arMQ2XAssist::\axFailed to set XTarget to %d (%s) - no more slots", pXTarget->SpawnID, pSpawn->AssistName);
+											if (DebugToggle)
+											{
+												WriteChatf("\arMQ2XAssist::\axFailed to set XTarget to %d (%s) - no more slots", pXTarget->SpawnID, pSpawn->AssistName);
+											}
+
+											return;
 										}
 
+										SetXTarget(slot, pXTarget->SpawnID);
+										if (DebugToggle)
+										{
+											WriteChatf("\arMQ2XAssist::\axSetting XTarget %d to %d (%s)", slot + 1, pXTarget->SpawnID, pSpawn->AssistName);
+										}
+
+										mobname = pSpawn->AssistName;
 										return;
 									}
-
-									SetXTarget(slot, pXTarget->SpawnID);
-									if (DebugToggle)
-									{
-										WriteChatf("\arMQ2XAssist::\axSetting XTarget %d to %d (%s)", slot+1, pXTarget->SpawnID, pSpawn->AssistName);
-									}
-
-									mobname = pSpawn->AssistName;
-									return;
 								}
 							}
 						}
