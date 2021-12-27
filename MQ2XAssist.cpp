@@ -353,7 +353,7 @@ PLUGIN_API void OnPulse()
 						{
 							if (pXTarget->Type == SPAWN_NPC)
 							{
-								if (DistanceToSpawn3D(pSpawn, pXTarget) > 1500) {
+								if (DistanceToSpawn3D(pSpawn, pXTarget) < 1500) {
 									int slot = GetXTargetSlotByID(pXTarget->SpawnID);
 									if (slot == -1) //not on there already so lets add it
 									{
