@@ -292,15 +292,9 @@ void XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 
 void AddXAssistCmd()
 {
-	int i = 0;
 	// Import EQ commands
-	PCMDLIST pCmdListOrig = (PCMDLIST)EQADDR_CMDLIST;
-	for (i=0;pCmdListOrig[i].fAddress != 0;i++) {
-		if (!strcmp(pCmdListOrig[i].szName,"/xtarget")) {
-			cmdXTarget = (fEQCommand)pCmdListOrig[i].fAddress;
-			break;
-		}
-	}
+	cmdXTarget = FindEQCommand("/xtarget");
+
 	RemoveCommand("/xtarget");
 	AddCommand("/xtarget",XTargetCmd);
 }
