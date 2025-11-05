@@ -7,27 +7,27 @@ PLUGIN_VERSION(1.3);
 
 bool DebugToggle = false;
 
-int AssistID = 0;
+uint32_t AssistID = 0;
 int checkcnt = 0;
 int xtcnt = -1;
 fEQCommand cmdXTarget;
 std::string assistname;
-PSPAWNINFO oldtarget = 0;
 std::string mobname;
-class MQ2XAssistType* pXAssistType = nullptr;
+PlayerClient* oldtarget = nullptr;
 
 class MQ2XAssistType : public MQ2Type
 {
 public:
-	enum Members {
+	enum class Members
+	{
 		XTFullHaterCount,
 		XTXAggroCount
 	};
 
-	MQ2XAssistType() :MQ2Type("XAssist")
+	MQ2XAssistType() : MQ2Type("XAssist")
 	{
-		TypeMember(XTFullHaterCount);
-		TypeMember(XTXAggroCount);
+		ScopedTypeMember(Members, XTFullHaterCount);
+		ScopedTypeMember(Members, XTXAggroCount);
 	}
 
 	virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override
@@ -35,65 +35,78 @@ public:
 		MQTypeMember* pMember = MQ2XAssistType::FindMember(Member);
 		if (!pMember)
 			return false;
+
 		if (!pLocalPlayer)
 			return false;
-		switch ((Members)pMember->ID) {
-			// Return the total number of AutoHater mobs in the XTarget window including the current target. Expansion of ${Me.XTHaterCount}
-			case XTFullHaterCount:
-				Dest.Int = getXTCountByAggro();
-				Dest.Type = mq::datatypes::pIntType;
-				return true;
-			// Return the total number of Autohater mobs less than the passed value -- uses an expanded range over ${Me.XTAggroCount}
-			case XTXAggroCount:
-				// Default to return 0
-				Dest.Int = 0;
-				if (IsNumber(Index)) {
-					int param_aggro = atoi(Index);
-					if (param_aggro < 1)
-						param_aggro = 1;
-					Dest.Int = getXTCountByAggro(param_aggro);
-				}
-				else {
-					Dest.Int = getXTCountByAggro();
-				}
 
-				Dest.Type = mq::datatypes::pIntType;
-				return true;
-			default:
-				break;
+		switch (static_cast<Members>(pMember->ID))
+		{
+		case Members::XTFullHaterCount:
+			// Return the total number of AutoHater mobs in the XTarget window
+			// including the current target. Expansion of ${Me.XTHaterCount}
+			Dest.Int = getXTCountByAggro();
+			Dest.Type = mq::datatypes::pIntType;
+			return true;
+
+		case Members::XTXAggroCount:
+			// Return the total number of Autohater mobs less than the passed value
+			// -- uses an expanded range over ${Me.XTAggroCount}
+
+			// Default to return 0
+			Dest.Int = 0;
+			if (IsNumber(Index))
+			{
+				int param_aggro = atoi(Index);
+				if (param_aggro < 1)
+					param_aggro = 1;
+				Dest.Int = getXTCountByAggro(param_aggro);
+			}
+			else
+			{
+				Dest.Int = getXTCountByAggro();
+			}
+
+			Dest.Type = mq::datatypes::pIntType;
+			return true;
+
+		default:
+			break;
 		}
 		return false;
 	}
 
 private:
 	/**
-		getXTCountByAggro
-		Calculate the total number of XT Auto Haters less than the passed  aggro value
-		@note The default value passed is the potential max aggro value seen in the aggropct field.
-		@return Total number of XTarget Auto Haters less than the passed aggro percentage.
-	*/
+	 * getXTCountByAggro
+	 * Calculate the total number of XT Auto Haters less than the passed  aggro value
+	 * @note The default value passed is the potential max aggro value seen in the aggropct field.
+	 * @return Total number of XTarget Auto Haters less than the passed aggro percentage.
+	 */
 	int getXTCountByAggro(int aggro_check_pct = 65536)
 	{
 		// Default return
 		int aggrocnt = 0;
 
-		PCHARINFO pChar = GetCharInfo();
-		if (!pChar) return aggrocnt;
-
-		ExtendedTargetList* xtm = pChar->pXTargetMgr;
-		if (!xtm) return aggrocnt;
-
+		if (!pLocalPC) return aggrocnt;
 		if (!pAggroInfo) return aggrocnt;
 
-		for (int i = 0; i < xtm->XTargetSlots.Count; i++) {
-			ExtendedTargetSlot xts = xtm->XTargetSlots[i];
-			DWORD spID = xts.SpawnID;
-			if (spID && xts.xTargetType == XTARGET_AUTO_HATER) {
-				if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(spID)) {
-					if (pSpawn->Type == SPAWN_NPC) {
+		ExtendedTargetList* xtm = pLocalPC->pXTargetMgr;
+
+		for (int i = 0; i < xtm->GetNumSlots(); i++)
+		{
+			ExtendedTargetSlot* xts = xtm->GetSlot(i);
+
+			if (xts->SpawnID && xts->xTargetType == XTARGET_AUTO_HATER)
+			{
+				if (PlayerClient* pSpawn = GetSpawnByID(xts->SpawnID))
+				{
+					if (pSpawn->Type == SPAWN_NPC)
+					{
 						int aggropct = pAggroInfo->aggroData[AD_xTarget1 + i].AggroPct;
+
 						// DebugSpewAlways("Checking aggro on %s its %d",pSpawn->DisplayedName, aggropct);
-						if (aggropct < aggro_check_pct) {
+						if (aggropct < aggro_check_pct)
+						{
 							aggrocnt++;
 						}
 					}
@@ -105,47 +118,52 @@ private:
 	}
 };
 
-bool XAssistData(const char* szIndex, MQTypeVar& Dest)
+MQ2XAssistType* pXAssistType = nullptr;
+
+bool XAssistData(const char*, MQTypeVar& Dest)
 {
 	Dest.DWord = 1;
 	Dest.Type = pXAssistType;
 	return true;
 }
 
-void SetXTarget(int slot, int id)
+void SetXTarget(uint32_t slot, int id)
 {
-	if (PCHARINFO pChar = GetCharInfo())
+	if (!pLocalPC)
+		return;
+
+	ExtendedTargetSlot* xtSlot = pLocalPC->pExtendedTargetList->GetSlot(slot);
+	if (!xtSlot)
+		return;
+
+	if (id)
 	{
-		if (pChar->pXTargetMgr)
+		PlayerClient* pSpawn = GetSpawnByID(id);
+		if (pSpawn)
 		{
-			if (slot >= 0 && slot < pChar->pXTargetMgr->XTargetSlots.Count)
-			{
-				if (id)
-				{
-					if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(id))
-					{
-						strcpy_s(pChar->pXTargetMgr->XTargetSlots[slot].Name, pSpawn->Name);
-					}
-					if (DebugToggle)
-						WriteChatf("\arMQ2XAssist::\axSetting XTarget. id:[%d] name:%s.", id, GetSpawnByID(id) != nullptr ? pChar->pXTargetMgr->XTargetSlots[slot].Name : "N/A");
-					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = id;
-					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotCurrentZone;
-					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = XTARGET_AUTO_HATER;
-				}
-				else
-				{
-					mobname.clear();
-					pChar->pXTargetMgr->XTargetSlots[slot].Name[0] = '\0';
-					pChar->pXTargetMgr->XTargetSlots[slot].SpawnID = 0;
-					pChar->pXTargetMgr->XTargetSlots[slot].XTargetSlotStatus = eXTSlotEmpty;
-					pChar->pXTargetMgr->XTargetSlots[slot].xTargetType = XTARGET_AUTO_HATER;
-				}
-			}
+			strcpy_s(xtSlot->Name, pSpawn->Name);
 		}
+		
+		if (DebugToggle)
+		{
+			WriteChatf("\arMQ2XAssist::\axSetting XTarget. id:[%d] name:%s.",
+				id, pSpawn != nullptr ? xtSlot->Name : "N/A");
+		}
+		xtSlot->SpawnID = id;
+		xtSlot->XTargetSlotStatus = eXTSlotCurrentZone;
+		xtSlot->xTargetType = XTARGET_AUTO_HATER;
+	}
+	else
+	{
+		mobname.clear();
+		xtSlot->Name[0] = '\0';
+		xtSlot->SpawnID = 0;
+		xtSlot->XTargetSlotStatus = eXTSlotEmpty;
+		xtSlot->xTargetType = XTARGET_AUTO_HATER;
 	}
 }
 
-void ClearXTargetWithDebugMessage(const char* szMessage, const int iXTarSlotActual)
+void ClearXTargetWithDebugMessage(const char* szMessage, uint32_t iXTarSlotActual)
 {
 	if (DebugToggle) {
 		WriteChatf("\arMQ2XAssist::\axClearing XTarget %d because %s", iXTarSlotActual + 1, szMessage);
@@ -155,14 +173,15 @@ void ClearXTargetWithDebugMessage(const char* szMessage, const int iXTarSlotActu
 
 void CleanUpXTarget()
 {
-	PCHARINFO pChar = GetCharInfo();
 	std::set<int> duplicates;
 
-	SPAWNINFO* pAssistSpawn = (SPAWNINFO*)GetSpawnByID(AssistID);
+	PlayerClient* pAssistSpawn = GetSpawnByID(AssistID);
 
-	for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
+	for (int i = 0; i < pLocalPC->pExtendedTargetList->GetNumSlots(); i++)
 	{
-		if (int xid = pChar->pXTargetMgr->XTargetSlots[i].SpawnID)
+		ExtendedTargetSlot* pSlot = pLocalPC->pExtendedTargetList->GetSlot(i);
+
+		if (int xid = pSlot->SpawnID)
 		{
 			if (duplicates.count(xid))
 			{
@@ -170,7 +189,7 @@ void CleanUpXTarget()
 			}
 			else
 			{
-				if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByID(xid))
+				if (PlayerClient* pXTarget = GetSpawnByID(xid))
 				{
 					if (pXTarget->Type == SPAWN_CORPSE && pXTarget->Deity == 0)
 					{
@@ -198,13 +217,11 @@ void CleanUpXTarget()
 // Get an empty XTarget slot. If none exist, returns -1
 int FindEmptyXTargetSlot()
 {
-	CHARINFO* pChar = GetCharInfo();
-
-	for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
+	for (int i = 0; i < pLocalPC->pExtendedTargetList->GetNumSlots(); ++i)
 	{
-		ExtendedTargetSlot& slot = pChar->pXTargetMgr->XTargetSlots[i];
+		ExtendedTargetSlot* slot = pLocalPC->pExtendedTargetList->GetSlot(i);
 
-		if (slot.XTargetSlotStatus == eXTSlotEmpty && slot.xTargetType == XTARGET_AUTO_HATER)
+		if (slot->XTargetSlotStatus == eXTSlotEmpty && slot->xTargetType == XTARGET_AUTO_HATER)
 		{
 			return i;
 		}
@@ -216,11 +233,9 @@ int FindEmptyXTargetSlot()
 // Get the XTarget slot for a specified SpawnID. If not found, returns -1.
 int GetXTargetSlotByID(int SpawnID)
 {
-	CHARINFO* pChar = GetCharInfo();
-
-	for (int i = 0; i < pChar->pXTargetMgr->XTargetSlots.Count; i++)
+	for (int i = 0; i < pLocalPC->pExtendedTargetList->GetNumSlots(); ++i)
 	{
-		if (pChar->pXTargetMgr->XTargetSlots[i].SpawnID == SpawnID)
+		if (pLocalPC->pExtendedTargetList->GetSlot(i)->SpawnID == SpawnID)
 		{
 			return i;
 		}
@@ -229,24 +244,25 @@ int GetXTargetSlotByID(int SpawnID)
 	return -1;
 }
 
-void XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
+void XTargetCmd(PlayerClient* pChar, const char* szLine)
 {
-	CHAR szCmd[MAX_STRING] = { 0 };
-	GetArg(szCmd,szLine, 1);
+	char szCmd[MAX_STRING] = { 0 };
+	GetArg(szCmd, szLine, 1);
+
 	if (!szCmd[0])
 	{
-		WriteChatColor("Usage: /xtarget id #id #slot",CONCOLOR_YELLOW);
-		WriteChatColor("Usage: /xtarget assist #id",CONCOLOR_YELLOW);
-		WriteChatColor("Usage: /xtarget debug on/off",CONCOLOR_YELLOW);
+		WriteChatf("Usage: \ay/xtarget\ax \agid #id #slot\ax");
+		WriteChatf("Usage: \ay/xtarget\ax \agassist #id\ax");
+		WriteChatf("Usage: \ay/xtarget\ax \agdebug on/off\ax");
 		cmdXTarget(pChar, szLine);
 	}
-	else if (!_stricmp(szCmd, "assist"))
+	else if (ci_equals(szCmd, "assist"))
 	{
-		CHAR szID[MAX_STRING] = { 0 };
+		char szID[MAX_STRING] = { 0 };
 		GetArg(szID, szLine, 2);
+
 		AssistID = atoi(szID);
-		PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(AssistID);
-		if (pSpawn)
+		if (PlayerClient* pSpawn = GetSpawnByID(AssistID))
 		{
 			assistname = pSpawn->Name;
 			WriteChatf("\agMQ2XAssist\ax::\ayNow Placing mobs \am%s\ay fights on XTarget\ax.", pSpawn->Name);
@@ -254,31 +270,34 @@ void XTargetCmd(PSPAWNINFO pChar, PCHAR szLine)
 		else
 		{
 			assistname.clear();
-			WriteChatf("\agMQ2XAssist\ax::\ayNot XAssisting anyone anymore.\ax.", pSpawn->Name);
+			WriteChatf("\agMQ2XAssist\ax::\ayNot XAssisting anyone anymore.\ax.");
 		}
 	}
-	else if (!_stricmp(szCmd, "id"))
+	else if (ci_equals(szCmd, "id"))
 	{
-		CHAR szSlot[MAX_STRING] = { 0 };
-		CHAR szID[MAX_STRING] = { 0 };
+		char szSlot[MAX_STRING] = { 0 };
+		char szID[MAX_STRING] = { 0 };
 		GetArg(szID, szLine, 2);
 		GetArg(szSlot, szLine, 3);
+
 		int id = atoi(szID);
 		int slot = atoi(szSlot);
 		if (slot > 0)
 			slot--;
+
 		SetXTarget(slot, id);
 	}
-	else if (!_stricmp(szCmd, "debug"))
+	else if (ci_equals(szCmd, "debug"))
 	{
-		CHAR szToggle[MAX_STRING] = { 0 };
+		char szToggle[MAX_STRING] = { 0 };
 		GetArg(szToggle, szLine, 2);
-		if (!_stricmp(szToggle, "on"))
+
+		if (ci_equals(szToggle, "on"))
 		{
 			WriteChatf("\agMQ2XAssist\ax::Turning Debug Messages \agON\ax.");
 			DebugToggle = true;
 		}
-		if (!_stricmp(szToggle, "off"))
+		else if (ci_equals(szToggle, "off"))
 		{
 			WriteChatf("\agMQ2XAssist\ax::Turning Debug Messages \arOFF\ax.");
 			DebugToggle = false;
@@ -295,25 +314,21 @@ void AddXAssistCmd()
 	// Import EQ commands
 	cmdXTarget = FindEQCommand("/xtarget");
 
-	RemoveCommand("/xtarget");
-	AddCommand("/xtarget",XTargetCmd);
+	AddCommand("/xtarget", XTargetCmd);
 }
 
 // Called once, when the plugin is to initialize
 PLUGIN_API void InitializePlugin()
 {
-	DebugSpewAlways("Initializing MQ2XAssist");
 	AddXAssistCmd();
 	AddMQ2Data("XAssist", XAssistData);
 	pXAssistType = new MQ2XAssistType;
 }
 
-// Called once, when the plugin is to shutdown
+// Called once, when the plugin is to shut down
 PLUGIN_API void ShutdownPlugin()
 {
-	DebugSpewAlways("Shutting down MQ2XAssist");
 	RemoveCommand("/xtarget");
-	AddCommand("/xtarget", cmdXTarget);
 	RemoveMQ2Data("XAssist");
 	delete pXAssistType;
 }
@@ -322,8 +337,8 @@ PLUGIN_API void OnPulse()
 {
 	if (GetGameState() != GAMESTATE_INGAME || !AssistID)
 		return;
-	PCHARINFO pChar = GetCharInfo();
-	if (!pChar || !pChar->pXTargetMgr)
+
+	if (!pLocalPC)
 		return;
 
 	// Check every 20 frames
@@ -332,48 +347,40 @@ PLUGIN_API void OnPulse()
 		checkcnt = 0;
 
 		// if it's myself we should not mess with adding it manually to xtarget
-		if (AssistID == ((PSPAWNINFO)pLocalPlayer)->SpawnID)
+		if (AssistID == pLocalPlayer->SpawnID)
 			return;
 
-		if (PSPAWNINFO pSpawn = (PSPAWNINFO)GetSpawnByID(AssistID))
+		if (PlayerClient* pSpawn = GetSpawnByID(AssistID))
 		{
-			if (pSpawn->AssistName[0])
+			if (pSpawn->AssistName[0] && !string_equals(pSpawn->AssistName, mobname))
 			{
-				if (pSpawn->AssistName != mobname)
+				if (PlayerClient* pXTarget = GetSpawnByName(pSpawn->AssistName))
 				{
-					if (PSPAWNINFO pXTarget = (PSPAWNINFO)GetSpawnByName(pSpawn->AssistName))
+					if (pXTarget->SpawnID != AssistID
+						&& pXTarget->Type == SPAWN_NPC
+						&& DistanceToSpawn3D(pSpawn, pXTarget) <= 1500)
 					{
-						if (pXTarget->SpawnID != AssistID)
+						if (GetXTargetSlotByID(pXTarget->SpawnID) == -1) // not on there already so lets add it
 						{
-							if (pXTarget->Type == SPAWN_NPC)
+							int slot = FindEmptyXTargetSlot();
+							if (slot == -1)
 							{
-								if (DistanceToSpawn3D(pSpawn, pXTarget) <= 1500)
+								if (DebugToggle)
 								{
-									int slot = GetXTargetSlotByID(pXTarget->SpawnID);
-									if (slot == -1) //not on there already so lets add it
-									{
-										slot = FindEmptyXTargetSlot();
-										if (slot == -1)
-										{
-											if (DebugToggle)
-											{
-												WriteChatf("\arMQ2XAssist::\axFailed to set XTarget to %d (%s) - no more slots", pXTarget->SpawnID, pSpawn->AssistName);
-											}
-
-											return;
-										}
-
-										SetXTarget(slot, pXTarget->SpawnID);
-										if (DebugToggle)
-										{
-											WriteChatf("\arMQ2XAssist::\axSetting XTarget %d to %d (%s)", slot + 1, pXTarget->SpawnID, pSpawn->AssistName);
-										}
-
-										mobname = pSpawn->AssistName;
-										return;
-									}
+									WriteChatf("\arMQ2XAssist::\axFailed to set XTarget to %d (%s) - no more slots", pXTarget->SpawnID, pSpawn->AssistName);
 								}
+
+								return;
 							}
+
+							SetXTarget(slot, pXTarget->SpawnID);
+							if (DebugToggle)
+							{
+								WriteChatf("\arMQ2XAssist::\axSetting XTarget %d to %d (%s)", slot + 1, pXTarget->SpawnID, pSpawn->AssistName);
+							}
+
+							mobname = pSpawn->AssistName;
+							return;
 						}
 					}
 				}
@@ -383,10 +390,10 @@ PLUGIN_API void OnPulse()
 		}
 		else
 		{
-			// guys id is gone lets pick it up again if we can
+			// id is gone lets pick it up again if we can
 			if (!assistname.empty())
 			{
-				pSpawn = (PSPAWNINFO)GetSpawnByName(assistname.c_str());
+				pSpawn = GetSpawnByName(assistname.c_str());
 				if (pSpawn != nullptr)
 				{
 					AssistID = pSpawn->SpawnID;
