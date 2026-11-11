@@ -10,13 +10,13 @@ Displays information about aggro from xtargets
 
 ## Members
 <!--dt-members-start-->
-### {{ renderMember(type='int', name='XTFullHaterCount') }}
+/// member | int XTFullHaterCount
+Returns all auto haters including the one that is being targeted
+///
 
-:   Returns all auto haters including the one that is being targeted
-
-### {{ renderMember(type='int', name='XTXAggroCount', params='#') }}
-
-:   allows the aggro range to be expanded to 1000 for situations where someone wants to check the &gt;=100 aggro values. # is the aggro value provided.
+/// member | int XTXAggroCount[#]
+allows the aggro range to be expanded to 1000 for situations where someone wants to check the &gt;=100 aggro values. # is the aggro value provided.
+///
 
 <!--dt-members-end-->
 
